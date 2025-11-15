@@ -12,37 +12,71 @@ Model name is converted to lowercase for the collection name:
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Literal
+from datetime import datetime
 
-# Example schemas (replace with your own):
 
-class User(BaseModel):
+class Settings(BaseModel):
     """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
+    App-level settings for a single user (owner)
+    Collection: settings
     """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    owner_id: str = Field("owner", description="Singleton identifier")
+    gmail_email: Optional[str] = Field(None, description="Gmail address used for IMAP/SMTP")
+    gmail_app_password: Optional[str] = Field(None, description="Gmail app password for IMAP/SMTP (use app-specific password)")
+    keywords: List[str] = Field(default_factory=lambda: ["psych", "psychology", "mental health", "therapy", "behavioral"], description="Keywords used to detect relevant queries")
+    tone: Literal["formal", "friendly", "confident", "concise"] = Field("friendly", description="Tone for generated pitches")
+    voice: str = Field("First-person expert but approachable", description="Voice guidance for the pitch generator")
+    style_notes: Optional[str] = Field(None, description="Additional style notes / rules")
+    intro_template: str = Field(
+        default="Hi {name},\n\nThanks for reaching out. I'm {your_name}, a {your_title}.",
+        description="Intro line template with placeholders: {name}, {your_name}, {your_title}"
+    )
+    signature_template: str = Field(
+        default="\n\nBest,\n{your_name}\n{your_title}\n{your_website}",
+        description="Signature template with placeholders: {your_name}, {your_title}, {your_website}"
+    )
+    your_name: Optional[str] = Field(None, description="Displayed name in emails")
+    your_title: Optional[str] = Field(None, description="Displayed title in emails")
+    your_website: Optional[str] = Field(None, description="Website or portfolio link")
 
-class Product(BaseModel):
+
+class Query(BaseModel):
     """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
+    A single newsletter query detected from Gmail
+    Collection: query
     """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    subject: str
+    sender_email: str
+    sender_name: Optional[str] = None
+    received_at: datetime
+    deadline: Optional[datetime] = None
+    body_text: str
+    source_message_id: Optional[str] = Field(None, description="Gmail message-id or uid for reference")
+    status: Literal["new", "drafted", "approved", "sent", "ignored"] = Field("new")
+    tags: List[str] = Field(default_factory=list)
 
-# Add your own schemas here:
-# --------------------------------------------------
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+class Pitch(BaseModel):
+    """
+    Generated pitch content for a query
+    Collection: pitch
+    """
+    query_id: str
+    content: str
+    style_used: dict
+    created_at: datetime
+
+
+class EmailDraft(BaseModel):
+    """
+    Drafted email based on a pitch
+    Collection: emaildraft
+    """
+    query_id: str
+    to_email: str
+    subject: str
+    body: str
+    approved: bool = False
+    created_at: datetime
+
